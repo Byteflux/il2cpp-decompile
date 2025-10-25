@@ -14,15 +14,13 @@ DATA_DIR = Path.home() / ".il2cpp-decompile"
 VENV_DIR = DATA_DIR / "venv"
 APPS_DIR = DATA_DIR / "apps"
 
-IL2CPP_DUMPER_URL = "https://github.com/Perfare/Il2CppDumper/releases/download/v6.7.46/Il2CppDumper-win-v6.7.46.zip"
-JDK_URL = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jdk_x64_windows_hotspot_21.0.8_9.zip"
-GHIDRA_URL = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.2_build/ghidra_11.4.2_PUBLIC_20250826.zip"
-
 
 def main() -> None:
     if Path(sys.prefix) != VENV_DIR:
         bootstrap()
         return
+
+    _load_dotenv()
 
     args = sys.argv[1:]
     if not args:
@@ -97,7 +95,12 @@ def main() -> None:
 def run_il2cpp_dumper(args: list[str | os.PathLike]) -> None:
     il2cpp_dumper_path = APPS_DIR / "Il2CppDumper/Il2CppDumper.exe"
     if not il2cpp_dumper_path.exists():
-        download_and_extract(IL2CPP_DUMPER_URL, "Il2CppDumper")
+        il2cppdumper_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_IL2CPPDUMPER")
+        if il2cppdumper_download_url is None:
+            print("Missing download URL for Il2CppDumper")
+            sys.exit(1)
+
+        download_and_extract(il2cppdumper_download_url, "Il2CppDumper")
         if not il2cpp_dumper_path.exists():
             print("Could not find Il2CppDumper.exe")
             sys.exit(1)
@@ -128,7 +131,12 @@ def run_ghidra(args: list[str | os.PathLike] = []) -> None:
     java_glob_pattern = "jdk-*/bin/java.exe"
     java_path = next(APPS_DIR.glob(java_glob_pattern), None)
     if java_path is None:
-        download_and_extract(JDK_URL)
+        jdk_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_JDK")
+        if jdk_download_url is None:
+            print("Missing download URL for JDK")
+            sys.exit(1)
+
+        download_and_extract(jdk_download_url)
         java_path = next(APPS_DIR.glob(java_glob_pattern), None)
         if java_path is None:
             print("Could not find java.exe")
@@ -137,7 +145,12 @@ def run_ghidra(args: list[str | os.PathLike] = []) -> None:
     ghidra_glob_pattern = "ghidra_*/support/pyghidraRun.bat"
     ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
     if ghidra_path is None:
-        download_and_extract(GHIDRA_URL)
+        ghidra_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_GHIDRA")
+        if ghidra_download_url is None:
+            print("Missing download URL for Ghidra")
+            sys.exit(1)
+
+        download_and_extract(ghidra_download_url)
         ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
         if ghidra_path is None:
             print("Could not find pyghidraRun.bat")
@@ -185,6 +198,17 @@ def bootstrap() -> None:
 
     result = subprocess.run([venv_python, __file__, *sys.argv[1:]])
     sys.exit(result.returncode)
+
+
+def _load_dotenv():
+    from dotenv import load_dotenv
+
+    env_file = DATA_DIR / ".env"
+    if not env_file.exists():
+        env_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(BASE_DIR / ".env.example", env_file)
+
+    load_dotenv(env_file)
 
 
 if __name__ == "__main__":

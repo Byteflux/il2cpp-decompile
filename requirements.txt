@@ -1,7 +1,9 @@
 certifi==2025.10.5
 charset-normalizer==3.4.4
+dotenv==0.9.9
 ghidra-stubs==11.4
 idna==3.11
+python-dotenv==1.1.1
 requests==2.32.5
 types-requests==2.32.4.20250913
 urllib3==2.5.0
