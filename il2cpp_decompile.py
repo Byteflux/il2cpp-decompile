@@ -21,6 +21,10 @@ _ENV_KEY_DOWNLOAD_URL_IL2CPPDUMPER = "IL2CPPDECOMPILE_DOWNLOAD_URL_IL2CPPDUMPER"
 _ENV_KEY_DOWNLOAD_URL_JDK = "IL2CPPDECOMPILE_DOWNLOAD_URL_JDK"
 _ENV_KEY_DOWNLOAD_URL_GHIDRA = "IL2CPPDECOMPILE_DOWNLOAD_URL_GHIDRA"
 
+_GLOB_PATTERN_GLOBALMETADATA = "*_Data/il2cpp_data/Metadata/global-metadata.dat"
+_GLOB_PATTERN_JAVA = "jdk-*/bin/java.exe"
+_GLOB_PATTERN_GHIDRA = "ghidra_*/support/pyghidraRun.bat"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -45,10 +49,9 @@ def main() -> None:
     if not game_assembly_file.exists():
         raise FileNotFoundError(f"Could not find {game_assembly_file}")
 
-    global_metadata_glob_pattern = "*_Data/il2cpp_data/Metadata/global-metadata.dat"
-    global_metadata_file = next(game_dir.glob(global_metadata_glob_pattern), None)
+    global_metadata_file = next(game_dir.glob(_GLOB_PATTERN_GLOBALMETADATA), None)
     if global_metadata_file is None:
-        raise FileNotFoundError(f"Could not find {game_dir / global_metadata_glob_pattern}")
+        raise FileNotFoundError(f"Could not find {game_dir / _GLOB_PATTERN_GLOBALMETADATA}")
 
     shake = hashlib.shake_256()
     with open(game_assembly_file, "rb") as f:
@@ -130,29 +133,27 @@ def _run_il2cppdumper_header_to_ghidra(work_dir) -> None:
 
 
 def _run_ghidra(args: list[str | os.PathLike] = []) -> None:
-    java_glob_pattern = "jdk-*/bin/java.exe"
-    java_path = next(APPS_DIR.glob(java_glob_pattern), None)
+    java_path = next(APPS_DIR.glob(_GLOB_PATTERN_JAVA), None)
     if java_path is None:
         download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_JDK)
         if download_url is None:
             raise KeyError(f"Missing download URL for JDK: {_ENV_KEY_DOWNLOAD_URL_JDK}")
 
         _download_and_extract(download_url)
-        java_path = next(APPS_DIR.glob(java_glob_pattern), None)
+        java_path = next(APPS_DIR.glob(_GLOB_PATTERN_JAVA), None)
         if java_path is None:
-            raise FileNotFoundError(f"Could not find {APPS_DIR / java_glob_pattern}")
+            raise FileNotFoundError(f"Could not find {APPS_DIR / _GLOB_PATTERN_JAVA}")
 
-    ghidra_glob_pattern = "ghidra_*/support/pyghidraRun.bat"
-    ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
+    ghidra_path = next(APPS_DIR.glob(_GLOB_PATTERN_GHIDRA), None)
     if ghidra_path is None:
         download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_GHIDRA)
         if download_url is None:
             raise KeyError(f"Missing download URL for Ghidra: {_ENV_KEY_DOWNLOAD_URL_GHIDRA}")
 
         _download_and_extract(download_url)
-        ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
+        ghidra_path = next(APPS_DIR.glob(_GLOB_PATTERN_GHIDRA), None)
         if ghidra_path is None:
-            raise FileNotFoundError(f"Could not find {APPS_DIR / ghidra_glob_pattern}")
+            raise FileNotFoundError(f"Could not find {APPS_DIR / _GLOB_PATTERN_GHIDRA}")
 
     env = os.environ.copy()
     env["JAVA_HOME"] = str(java_path.parent.parent)
