@@ -52,16 +52,7 @@ def main(args: list[str] = sys.argv[1:]) -> None:
     if globalmetadata_file is None:
         raise FileNotFoundError(f"Could not find {game_dir / _GLOB_PATTERN_GLOBALMETADATA}")
 
-    shake = hashlib.shake_256()
-    with open(gameassembly_file, "rb") as f:
-        while True:
-            chunk = f.read(8192)
-            if not chunk:
-                break
-            shake.update(chunk)
-
-    id = shake.hexdigest(4)
-    work_dir = Path.cwd() / f"il2cpp-decompile/{id}"
+    work_dir = Path.cwd() / "il2cpp-decompile" / _get_file_hash(gameassembly_file)
     work_dir.mkdir(parents=True, exist_ok=True)
 
     project_file = work_dir / f"{game_dir.name}.gpr"
@@ -143,6 +134,17 @@ def _run_ghidra(args: list[str | os.PathLike] = []) -> None:
     env["JAVA_HOME"] = str(java_path.parent.parent)
 
     subprocess.run([ghidra_path, *args], env=env, check=True)
+
+
+def _get_file_hash(file: Path) -> str:
+    shake = hashlib.shake_256()
+    with open(file, "rb") as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            shake.update(chunk)
+    return shake.hexdigest(4)
 
 
 def _get_file_from_glob(base_dir: Path, pattern: str) -> Path:
