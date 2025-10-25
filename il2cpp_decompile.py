@@ -80,24 +80,14 @@ def main(args: list[str] = sys.argv[1:]) -> None:
     _run_il2cppdumper([game_assembly_file, global_metadata_file, work_dir])
     _run_il2cppdumper_header_to_ghidra(work_dir)
 
-    _run_ghidra(
-        [
-            "--headless",
-            work_dir,
-            game_dir.name,
-            "-import",
-            game_assembly_file,
-            "-scriptPath",
-            f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}",
-            "-postScript",
-            "parse_header.py",
-            work_dir / "il2cpp_ghidra.h",
-            "-postScript",
-            "ghidra_with_struct.py",
-            work_dir / "script.json",
-        ]
-    )
-
+    headless_args: list[str | os.PathLike] = [
+        *("--headless", work_dir, game_dir.name),
+        *("-import", game_assembly_file),
+        *("-scriptPath", f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}"),
+        *("-postScript", "parse_header.py", work_dir / "il2cpp_ghidra.h"),
+        *("-postScript", "ghidra_with_struct.py", work_dir / "script.json"),
+    ]
+    _run_ghidra(headless_args)
     _run_ghidra([project_file])
 
 
