@@ -111,8 +111,7 @@ def _run_il2cppdumper(args: list[str | os.PathLike]) -> None:
 
         _download_and_extract(download_url, "Il2CppDumper")
         if not il2cppdumper_path.exists():
-            print("Could not find Il2CppDumper.exe")
-            sys.exit(1)
+            raise FileNotFoundError(f"Could not find {il2cppdumper_path}")
 
     config_file = il2cppdumper_path.parent / "config.json"
     config = {}
