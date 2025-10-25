@@ -77,7 +77,6 @@ def main() -> None:
             game_dir.name,
             "-import",
             game_assembly_file,
-            "-overwrite",
             "-scriptPath",
             f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}",
             "-postScript",
