@@ -28,14 +28,13 @@ _GLOB_PATTERN_GHIDRA = "ghidra_*/support/pyghidraRun.bat"
 _logger = logging.getLogger(__name__)
 
 
-def main() -> None:
+def main(args: list[str] = sys.argv[1:]) -> None:
     if Path(sys.prefix) != VENV_DIR:
         _bootstrap()
         return
 
     _load_dotenv()
 
-    args = sys.argv[1:]
     if not args:
         _run_ghidra()
         return
