@@ -133,32 +133,35 @@ def _run_il2cppdumper_header_to_ghidra(work_dir) -> None:
 
 
 def _run_ghidra(args: list[str | os.PathLike] = []) -> None:
-    java_path = next(APPS_DIR.glob(_GLOB_PATTERN_JAVA), None)
-    if java_path is None:
+    try:
+        java_path = _get_file_from_glob(APPS_DIR, _GLOB_PATTERN_JAVA)
+    except FileNotFoundError:
         download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_JDK)
         if download_url is None:
             raise KeyError(f"Missing download URL for JDK: {_ENV_KEY_DOWNLOAD_URL_JDK}")
-
         _download_and_extract(download_url)
-        java_path = next(APPS_DIR.glob(_GLOB_PATTERN_JAVA), None)
-        if java_path is None:
-            raise FileNotFoundError(f"Could not find {APPS_DIR / _GLOB_PATTERN_JAVA}")
+        java_path = _get_file_from_glob(APPS_DIR, _GLOB_PATTERN_JAVA)
 
-    ghidra_path = next(APPS_DIR.glob(_GLOB_PATTERN_GHIDRA), None)
-    if ghidra_path is None:
+    try:
+        ghidra_path = _get_file_from_glob(APPS_DIR, _GLOB_PATTERN_GHIDRA)
+    except FileNotFoundError:
         download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_GHIDRA)
         if download_url is None:
             raise KeyError(f"Missing download URL for Ghidra: {_ENV_KEY_DOWNLOAD_URL_GHIDRA}")
-
         _download_and_extract(download_url)
-        ghidra_path = next(APPS_DIR.glob(_GLOB_PATTERN_GHIDRA), None)
-        if ghidra_path is None:
-            raise FileNotFoundError(f"Could not find {APPS_DIR / _GLOB_PATTERN_GHIDRA}")
+        ghidra_path = _get_file_from_glob(APPS_DIR, _GLOB_PATTERN_GHIDRA)
 
     env = os.environ.copy()
     env["JAVA_HOME"] = str(java_path.parent.parent)
 
     subprocess.run([ghidra_path, *args], env=env, check=True)
+
+
+def _get_file_from_glob(base_dir: Path, pattern: str) -> Path:
+    file = next(base_dir.glob(pattern), None)
+    if file is None:
+        raise FileNotFoundError(f"Could not find {base_dir / pattern}")
+    return file
 
 
 def _download_and_extract(url: str, name: Optional[str] = None) -> None:
