@@ -1,0 +1,19 @@
+[project]
+name = "il2cpp-decompile"
+description = "A simple wrapper around Il2CppDumper and Ghidra to automate the process of decompiling Unity IL2CPP games."
+version = "0.0.1"
+requires-python = ">= 3.9"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Matthew Harris", email = "byte@byteflux.net"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Disassemblers",
+]
+
+[tool.ruff]
+line-length = 120
