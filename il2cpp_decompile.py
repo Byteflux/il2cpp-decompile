@@ -1,18 +1,27 @@
 import hashlib
 import json
+import logging
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
+import zipfile
 from pathlib import Path
-from tempfile import TemporaryFile
 from typing import Optional
-from zipfile import ZipFile
 
 BASE_DIR = Path(__file__).parent
 DATA_DIR = Path.home() / ".il2cpp-decompile"
 VENV_DIR = DATA_DIR / "venv"
 APPS_DIR = DATA_DIR / "apps"
+LOGS_DIR = DATA_DIR / "logs"
+
+_ENV_KEY_DOWNLOAD_URL_IL2CPPDUMPER = "IL2CPPDECOMPILE_DOWNLOAD_URL_IL2CPPDUMPER"
+_ENV_KEY_DOWNLOAD_URL_JDK = "IL2CPPDECOMPILE_DOWNLOAD_URL_JDK"
+_ENV_KEY_DOWNLOAD_URL_GHIDRA = "IL2CPPDECOMPILE_DOWNLOAD_URL_GHIDRA"
+
+_logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -34,13 +43,12 @@ def main() -> None:
         game_dir = game_assembly_file.parent
 
     if not game_assembly_file.exists():
-        print("Could not find GameAssembly.dll")
-        sys.exit(1)
+        raise FileNotFoundError(f"Could not find {game_assembly_file}")
 
-    global_metadata_file = next(game_dir.glob("*_Data/il2cpp_data/Metadata/global-metadata.dat"), None)
+    global_metadata_glob_pattern = "*_Data/il2cpp_data/Metadata/global-metadata.dat"
+    global_metadata_file = next(game_dir.glob(global_metadata_glob_pattern), None)
     if global_metadata_file is None:
-        print("Could not find global-metadata.dat")
-        sys.exit(1)
+        raise FileNotFoundError(f"Could not find {game_dir / global_metadata_glob_pattern}")
 
     shake = hashlib.shake_256()
     with open(game_assembly_file, "rb") as f:
@@ -94,12 +102,11 @@ def main() -> None:
 def _run_il2cppdumper(args: list[str | os.PathLike]) -> None:
     il2cppdumper_path = APPS_DIR / "Il2CppDumper/Il2CppDumper.exe"
     if not il2cppdumper_path.exists():
-        il2cppdumper_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_IL2CPPDUMPER")
-        if il2cppdumper_download_url is None:
-            print("Missing download URL for Il2CppDumper")
-            sys.exit(1)
+        download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_IL2CPPDUMPER)
+        if download_url is None:
+            raise KeyError(f"Missing download URL for Il2CppDumper: {_ENV_KEY_DOWNLOAD_URL_IL2CPPDUMPER}")
 
-        _download_and_extract(il2cppdumper_download_url, "Il2CppDumper")
+        _download_and_extract(download_url, "Il2CppDumper")
         if not il2cppdumper_path.exists():
             print("Could not find Il2CppDumper.exe")
             sys.exit(1)
@@ -114,66 +121,56 @@ def _run_il2cppdumper(args: list[str | os.PathLike]) -> None:
         with open(config_file, "w") as f:
             json.dump(config, f)
 
-    result = subprocess.run([il2cppdumper_path, *args])
-    if result.returncode > 0:
-        sys.exit(result.returncode)
+    subprocess.run([il2cppdumper_path, *args], check=True)
 
 
 def _run_il2cppdumper_header_to_ghidra(work_dir) -> None:
     script_path = APPS_DIR / "Il2CppDumper/il2cpp_header_to_ghidra.py"
-    result = subprocess.run([sys.executable, script_path], cwd=work_dir)
-    if result.returncode > 0:
-        sys.exit(result.returncode)
+    subprocess.run([sys.executable, script_path], cwd=work_dir, check=True)
 
 
 def _run_ghidra(args: list[str | os.PathLike] = []) -> None:
     java_glob_pattern = "jdk-*/bin/java.exe"
     java_path = next(APPS_DIR.glob(java_glob_pattern), None)
     if java_path is None:
-        jdk_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_JDK")
-        if jdk_download_url is None:
-            print("Missing download URL for JDK")
-            sys.exit(1)
+        download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_JDK)
+        if download_url is None:
+            raise KeyError(f"Missing download URL for JDK: {_ENV_KEY_DOWNLOAD_URL_JDK}")
 
-        _download_and_extract(jdk_download_url)
+        _download_and_extract(download_url)
         java_path = next(APPS_DIR.glob(java_glob_pattern), None)
         if java_path is None:
-            print("Could not find java.exe")
-            sys.exit(1)
+            raise FileNotFoundError(f"Could not find {APPS_DIR / java_glob_pattern}")
 
     ghidra_glob_pattern = "ghidra_*/support/pyghidraRun.bat"
     ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
     if ghidra_path is None:
-        ghidra_download_url = os.getenv("IL2CPPDECOMPILE_DOWNLOAD_URL_GHIDRA")
-        if ghidra_download_url is None:
-            print("Missing download URL for Ghidra")
-            sys.exit(1)
+        download_url = os.getenv(_ENV_KEY_DOWNLOAD_URL_GHIDRA)
+        if download_url is None:
+            raise KeyError(f"Missing download URL for Ghidra: {_ENV_KEY_DOWNLOAD_URL_GHIDRA}")
 
-        _download_and_extract(ghidra_download_url)
+        _download_and_extract(download_url)
         ghidra_path = next(APPS_DIR.glob(ghidra_glob_pattern), None)
         if ghidra_path is None:
-            print("Could not find pyghidraRun.bat")
-            sys.exit(1)
+            raise FileNotFoundError(f"Could not find {APPS_DIR / ghidra_glob_pattern}")
 
     env = os.environ.copy()
     env["JAVA_HOME"] = str(java_path.parent.parent)
 
-    result = subprocess.run([ghidra_path, *args], env=env)
-    if result.returncode > 0:
-        sys.exit(result.returncode)
+    subprocess.run([ghidra_path, *args], env=env, check=True)
 
 
 def _download_and_extract(url: str, name: Optional[str] = None) -> None:
     import requests
 
-    with TemporaryFile() as f:
+    with tempfile.TemporaryFile() as f:
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
 
         f.seek(0)
-        with ZipFile(f) as z:
+        with zipfile.ZipFile(f) as z:
             if name is not None:
                 z.extractall(APPS_DIR / name)
             else:
@@ -189,17 +186,17 @@ def _bootstrap() -> None:
             [venv_python, "-m", "pip", "install", "-U", "pip"],
             [venv_python, "-m", "pip", "install", "-r", BASE_DIR / "requirements.txt"],
         ]
-        for command in commands:
-            result = subprocess.run(command, stdout=subprocess.DEVNULL)
-            if result.returncode > 0:
-                shutil.rmtree(VENV_DIR, ignore_errors=True)
-                sys.exit(result.returncode)
+        try:
+            for command in commands:
+                subprocess.run(command, stdout=subprocess.DEVNULL, check=True)
+        except:
+            shutil.rmtree(VENV_DIR, ignore_errors=True)
+            raise
 
-    result = subprocess.run([venv_python, __file__, *sys.argv[1:]])
-    sys.exit(result.returncode)
+    subprocess.run([venv_python, __file__, *sys.argv[1:]], check=True)
 
 
-def _load_dotenv():
+def _load_dotenv() -> None:
     from dotenv import load_dotenv
 
     env_file = DATA_DIR / ".env"
@@ -210,5 +207,27 @@ def _load_dotenv():
     load_dotenv(env_file)
 
 
+def _configure_logging() -> Path:
+    log_file = LOGS_DIR / f"{time.strftime('%Y-%m-%d')}.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(filename=log_file, level=logging.WARNING)
+    return log_file
+
+
 if __name__ == "__main__":
-    main()
+    log_file = _configure_logging()
+
+    try:
+        main()
+    except Exception as e:
+        _logger.error(e, exc_info=True)
+
+        print(f"Error: {e} ({e.__class__.__name__})")
+        print(f"Detailed error info has been logged to {log_file}")
+
+        if isinstance(e, OSError):
+            sys.exit(e.errno)
+        elif isinstance(e, subprocess.CalledProcessError):
+            sys.exit(e.returncode)
+        else:
+            sys.exit(1)
