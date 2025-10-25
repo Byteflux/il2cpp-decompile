@@ -40,20 +40,20 @@ def main(args: list[str] = sys.argv[1:]) -> None:
         return
 
     game_dir = Path(args[0])
-    game_assembly_file = game_dir / "GameAssembly.dll"
+    gameassembly_file = game_dir / "GameAssembly.dll"
     if game_dir.name == "GameAssembly.dll":
-        game_assembly_file = game_dir
-        game_dir = game_assembly_file.parent
+        gameassembly_file = game_dir
+        game_dir = gameassembly_file.parent
 
-    if not game_assembly_file.exists():
-        raise FileNotFoundError(f"Could not find {game_assembly_file}")
+    if not gameassembly_file.exists():
+        raise FileNotFoundError(f"Could not find {gameassembly_file}")
 
-    global_metadata_file = next(game_dir.glob(_GLOB_PATTERN_GLOBALMETADATA), None)
-    if global_metadata_file is None:
+    globalmetadata_file = next(game_dir.glob(_GLOB_PATTERN_GLOBALMETADATA), None)
+    if globalmetadata_file is None:
         raise FileNotFoundError(f"Could not find {game_dir / _GLOB_PATTERN_GLOBALMETADATA}")
 
     shake = hashlib.shake_256()
-    with open(game_assembly_file, "rb") as f:
+    with open(gameassembly_file, "rb") as f:
         while True:
             chunk = f.read(8192)
             if not chunk:
@@ -69,20 +69,20 @@ def main(args: list[str] = sys.argv[1:]) -> None:
         _run_ghidra([project_file])
         return
 
-    for file in [game_assembly_file, global_metadata_file]:
+    for file in [gameassembly_file, globalmetadata_file]:
         dest_file = work_dir / file.relative_to(game_dir.parent)
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, dest_file)
 
-    game_assembly_file = work_dir / game_assembly_file.relative_to(game_dir.parent)
-    global_metadata_file = work_dir / global_metadata_file.relative_to(game_dir.parent)
+    gameassembly_file = work_dir / gameassembly_file.relative_to(game_dir.parent)
+    globalmetadata_file = work_dir / globalmetadata_file.relative_to(game_dir.parent)
 
-    _run_il2cppdumper([game_assembly_file, global_metadata_file, work_dir])
+    _run_il2cppdumper([gameassembly_file, globalmetadata_file, work_dir])
     _run_il2cppdumper_header_to_ghidra(work_dir)
 
     headless_args: list[str | os.PathLike] = [
         *("--headless", work_dir, game_dir.name),
-        *("-import", game_assembly_file),
+        *("-import", gameassembly_file),
         *("-scriptPath", f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}"),
         *("-postScript", "parse_header.py", work_dir / "il2cpp_ghidra.h"),
         *("-postScript", "ghidra_with_struct.py", work_dir / "script.json"),
