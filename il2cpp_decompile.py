@@ -41,6 +41,11 @@ def main(args: list[str] = sys.argv[1:]) -> None:
         return
 
     game_dir = Path(args[0])
+    if game_dir.suffix == ".gpr":
+        project_file = game_dir.absolute()
+        _run_ghidra([project_file])
+        return
+
     gameassembly_file = game_dir / "GameAssembly.dll"
     if game_dir.name == "GameAssembly.dll":
         gameassembly_file = game_dir
