@@ -1,4 +1,5 @@
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -66,8 +67,11 @@ def main(args: list[str] = sys.argv[1:]) -> None:
         _run_ghidra([project_file])
         return
 
-    for file in [gameassembly_file, globalmetadata_file]:
-        dest_file = project_dir / file.relative_to(game_dir.parent)
+    for file in itertools.chain([globalmetadata_file], game_dir.glob("**/*.dll")):
+        relative_file = file.relative_to(game_dir.parent)
+        if relative_file.parts[1] == "BepInEx":
+            continue
+        dest_file = project_dir / relative_file
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, dest_file)
 
@@ -80,6 +84,9 @@ def main(args: list[str] = sys.argv[1:]) -> None:
     headless_args: list[str | os.PathLike] = [
         *("--headless", project_dir, game_dir.name),
         *("-import", gameassembly_file),
+        *("-loader", "PeLoader"),
+        *("-loader-loadLibraries", "true"),
+        *("-loader-libraryDestinationFolder", "/lib"),
         *("-scriptPath", f"{BASE_DIR / 'ghidra_scripts'};{APPS_DIR / 'Il2CppDumper'}"),
         *("-postScript", "parse_header.py", project_dir / "il2cpp_ghidra.h"),
         *("-postScript", "ghidra_with_struct.py", project_dir / "script.json"),
