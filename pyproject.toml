@@ -17,3 +17,11 @@ classifiers = [
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"ghidra_scripts/*.py" = ["F403", "F405"]
+
+[tool.pyright]
+executionEnvironments = [
+    {root = "ghidra_scripts", reportMissingModuleSource = false, reportWildcardImportFromLibrary = false}
+]
