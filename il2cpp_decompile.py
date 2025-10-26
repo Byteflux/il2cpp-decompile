@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 BASE_DIR = Path(__file__).parent
+WORK_DIR = Path.cwd() / "il2cpp-decompile"
 DATA_DIR = Path.home() / ".il2cpp-decompile"
 VENV_DIR = DATA_DIR / "venv"
 APPS_DIR = DATA_DIR / "apps"
@@ -52,31 +53,31 @@ def main(args: list[str] = sys.argv[1:]) -> None:
     if globalmetadata_file is None:
         raise FileNotFoundError(f"Could not find {game_dir / _GLOB_PATTERN_GLOBALMETADATA}")
 
-    work_dir = Path.cwd() / "il2cpp-decompile" / _get_file_hash(gameassembly_file)
-    work_dir.mkdir(parents=True, exist_ok=True)
+    project_dir = WORK_DIR / _get_file_hash(gameassembly_file)
+    project_dir.mkdir(parents=True, exist_ok=True)
 
-    project_file = work_dir / f"{game_dir.name}.gpr"
+    project_file = project_dir / f"{game_dir.name}.gpr"
     if project_file.exists():
         _run_ghidra([project_file])
         return
 
     for file in [gameassembly_file, globalmetadata_file]:
-        dest_file = work_dir / file.relative_to(game_dir.parent)
+        dest_file = project_dir / file.relative_to(game_dir.parent)
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, dest_file)
 
-    gameassembly_file = work_dir / gameassembly_file.relative_to(game_dir.parent)
-    globalmetadata_file = work_dir / globalmetadata_file.relative_to(game_dir.parent)
+    gameassembly_file = project_dir / gameassembly_file.relative_to(game_dir.parent)
+    globalmetadata_file = project_dir / globalmetadata_file.relative_to(game_dir.parent)
 
-    _run_il2cppdumper([gameassembly_file, globalmetadata_file, work_dir])
-    _run_il2cppdumper_header_to_ghidra(work_dir)
+    _run_il2cppdumper([gameassembly_file, globalmetadata_file, project_dir])
+    _run_il2cppdumper_header_to_ghidra(project_dir)
 
     headless_args: list[str | os.PathLike] = [
-        *("--headless", work_dir, game_dir.name),
+        *("--headless", project_dir, game_dir.name),
         *("-import", gameassembly_file),
         *("-scriptPath", f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}"),
-        *("-postScript", "parse_header.py", work_dir / "il2cpp_ghidra.h"),
-        *("-postScript", "ghidra_with_struct.py", work_dir / "script.json"),
+        *("-postScript", "parse_header.py", project_dir / "il2cpp_ghidra.h"),
+        *("-postScript", "ghidra_with_struct.py", project_dir / "script.json"),
     ]
     _run_ghidra(headless_args)
     _run_ghidra([project_file])
@@ -106,9 +107,9 @@ def _run_il2cppdumper(args: list[str | os.PathLike]) -> None:
     subprocess.run([il2cppdumper_path, *args], check=True)
 
 
-def _run_il2cppdumper_header_to_ghidra(work_dir) -> None:
+def _run_il2cppdumper_header_to_ghidra(project_dir) -> None:
     script_path = APPS_DIR / "Il2CppDumper/il2cpp_header_to_ghidra.py"
-    subprocess.run([sys.executable, script_path], cwd=work_dir, check=True)
+    subprocess.run([sys.executable, script_path], cwd=project_dir, check=True)
 
 
 def _run_ghidra(args: list[str | os.PathLike] = []) -> None:
