@@ -80,7 +80,7 @@ def main(args: list[str] = sys.argv[1:]) -> None:
     headless_args: list[str | os.PathLike] = [
         *("--headless", project_dir, game_dir.name),
         *("-import", gameassembly_file),
-        *("-scriptPath", f"{BASE_DIR / 'scripts'};{APPS_DIR / 'Il2CppDumper'}"),
+        *("-scriptPath", f"{BASE_DIR / 'ghidra_scripts'};{APPS_DIR / 'Il2CppDumper'}"),
         *("-postScript", "parse_header.py", project_dir / "il2cpp_ghidra.h"),
         *("-postScript", "ghidra_with_struct.py", project_dir / "script.json"),
     ]
